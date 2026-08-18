@@ -1,0 +1,22 @@
+{
+    "users": [
+            {
+              "id":1,
+              "username":"Ash Ketchum",
+              "region":"Pueblo Paleta",
+                "deck":[25,6,1,7,12] 
+            },
+            {
+              "id":2,
+              "username":"Misty",
+              "region":"Ciudad Celeste",
+                "deck":[54,175,120,121,118] 
+            },
+            {
+              "id":3,
+              "username":"Brock",
+              "region":"Ciudad Plateada",
+                "deck":[95,74,37,41,42] 
+            }
+          ]  
+}
