@@ -11,14 +11,14 @@
               "id":2,
               "username":"Misty",
               "region":"Ciudad Celeste",
-		"img":"https://static.wikia.nocookie.net/pokegirls-digigirls/images/b/b1/Misty_AG.png/revision/latest/thumbnail/width/360/height/450?cb=20160507203329",
+		"img":"https://play.pokemonshowdown.com/sprites/trainers/misty.png",
                 "deck":[54,175,120,121,118] 
             },
             {
               "id":3,
               "username":"Brock",
               "region":"Ciudad Plateada",
-		"img":"https://static.wikia.nocookie.net/espokemon/images/5/5c/EE11_Brock.png/revision/latest/scale-to-width/360?cb=20110430183218",
+		"img":"https://play.pokemonshowdown.com/sprites/trainers/brock.png",
                 "deck":[95,74,37,41,42] 
             }
           ]  
