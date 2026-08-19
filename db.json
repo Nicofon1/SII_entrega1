@@ -2,20 +2,23 @@
     "users": [
             {
               "id":1,
-              "username":"Ash Ketchum",
+              "username":"Ash",
               "region":"Pueblo Paleta",
+		"img":"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3Vh_M8JzYLU0cTgWUBJo6iRRKGrwSO2I6XK6bN21Qk4sWGmb9VVzj7egJ&s=10",
                 "deck":[25,6,1,7,12] 
             },
             {
               "id":2,
-              "username":"Misty",
+              "username":"Misty",https://static.wikia.nocookie.net/pokegirls-digigirls/images/b/b1/Misty_AG.png/revision/latest/thumbnail/width/360/height/450?cb=20160507203329
               "region":"Ciudad Celeste",
+		"img":"https://static.wikia.nocookie.net/pokegirls-digigirls/images/b/b1/Misty_AG.png/revision/latest/thumbnail/width/360/height/450?cb=20160507203329",
                 "deck":[54,175,120,121,118] 
             },
             {
               "id":3,
               "username":"Brock",
               "region":"Ciudad Plateada",
+		"img":"https://static.wikia.nocookie.net/espokemon/images/5/5c/EE11_Brock.png/revision/latest/scale-to-width/360?cb=20110430183218",
                 "deck":[95,74,37,41,42] 
             }
           ]  

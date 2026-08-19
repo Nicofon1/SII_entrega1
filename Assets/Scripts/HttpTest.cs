@@ -1,95 +1,317 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
+using TMPro;
 
-public class HttpTest : MonoBehaviour
+public class PokemonAppManager : MonoBehaviour
 {
-    private string FakeApiUrl = "https://my-json-server.typicode.com/manolovillarreal/jsonDB/";
+    [Header("APIs Config")]
+    [SerializeField] private string usersApiUrl = "https://my-json-server.typicode.com/Nicofon1/SII_entrega1/users";
+    [SerializeField] private string pokeApiUrl = "https://pokeapi.co/api/v2/pokemon/";
 
-    private string Url = "https://rickandmortyapi.com/api/character/";
+    [Header("Pantallas (Menús)")]
+    [SerializeField] private GameObject menuPrincipal;
+    [SerializeField] private GameObject menuCards;
 
-    //private int characterId = Mathf.Clamp(315, 1, 826); // Clamp the character ID to be between 1 and 826
+    [Header("Menu Principal - Entrenadores")]
+    [SerializeField] private TrainerCardUI[] trainerCards;
 
+    [Header("Menu Cards - Visualización de Deck")]
+    [SerializeField] private PokemonCardUI leftCard;    // Card (4)
+    [SerializeField] private PokemonCardUI centerCard;  // Card (5)
+    [SerializeField] private PokemonCardUI rightCard;   // Card (3)
+    [SerializeField] private Button btnPrev;            // Botón Flecha Izquierda
+    [SerializeField] private Button btnNext;            // Botón Flecha Derecha
+    [SerializeField] private Button btnBackToTrainers;  // Botón para volver
+
+    private List<UserInfo> trainersList = new List<UserInfo>();
+    private UserInfo selectedTrainer;
+    private int currentDeckCenterIndex = 0;
 
     void Start()
     {
-        StartCoroutine(GetUserProfile(1));
+        if (btnPrev != null) btnPrev.onClick.AddListener(PrevPokemon);
+        if (btnNext != null) btnNext.onClick.AddListener(NextPokemon);
+        if (btnBackToTrainers != null) btnBackToTrainers.onClick.AddListener(ShowMenuPrincipal);
+
+        ShowMenuPrincipal();
+        StartCoroutine(FetchUsers());
     }
 
-    public void GetCharacterButtonClick()
+    #region Gestión de Pantallas
+
+    public void ShowMenuPrincipal()
     {
-        int newcharacterId = Mathf.Clamp(Random.Range(1, 827), 1, 826); // Clamp the character ID to be between 1 and 826
-        StartCoroutine(GetCharacter(newcharacterId));
+        if (menuPrincipal != null) menuPrincipal.SetActive(true);
+        if (menuCards != null) menuCards.SetActive(false);
     }
-    IEnumerator GetUserProfile(int userId)
+
+    public void ShowMenuCards(UserInfo trainer)
     {
-        UnityWebRequest www = UnityWebRequest.Get(FakeApiUrl + "/users/" + userId);
-        yield return www.SendWebRequest();
+        selectedTrainer = trainer;
+        currentDeckCenterIndex = 0;
 
-        if (www.result != UnityWebRequest.Result.Success)
-        {
-            Debug.Log(www.error);
-        }
-        else
-        {
-            Debug.Log(www.downloadHandler.text);
-            UserInfo userInfo = JsonUtility.FromJson<UserInfo>(www.downloadHandler.text);
+        if (menuPrincipal != null) menuPrincipal.SetActive(false);
+        if (menuCards != null) menuCards.SetActive(true);
 
-            foreach (int cardId in userInfo.deck)
+        UpdateDeckView();
+    }
+
+    #endregion
+
+    #region Peticiones API - Usuarios (Entrenadores)
+
+    IEnumerator FetchUsers()
+    {
+        Debug.Log($"<color=cyan>[API REQUEST]</color> Consultando entrenadores en: {usersApiUrl}");
+
+        using (UnityWebRequest req = UnityWebRequest.Get(usersApiUrl))
+        {
+            yield return req.SendWebRequest();
+
+            if (req.result != UnityWebRequest.Result.Success)
             {
-                StartCoroutine(GetCharacter(cardId));
-
+                Debug.LogError($"<color=red>[ERROR API USUARIOS]</color> Código: {req.responseCode} | Detalle: {req.error} | URL: {usersApiUrl}");
             }
+            else
+            {
+                Debug.Log($"<color=green>[OK API USUARIOS]</color> Datos recibidos: {req.downloadHandler.text}");
 
+                string jsonWrapped = "{\"users\":" + req.downloadHandler.text + "}";
+                UserListWrapper wrapper = JsonUtility.FromJson<UserListWrapper>(jsonWrapped);
+                trainersList = new List<UserInfo>(wrapper.users);
+
+                SetupTrainerCardsUI();
+            }
         }
     }
-    IEnumerator GetCharacter(int characterId)
+
+    private void SetupTrainerCardsUI()
     {
-        UnityWebRequest www = UnityWebRequest.Get(Url + characterId);
-        yield return www.SendWebRequest();
-
-        if (www.result != UnityWebRequest.Result.Success)
+        for (int i = 0; i < trainerCards.Length; i++)
         {
-            Debug.Log(www.error);
-        }
-        else
-        {
-            // Show results as text
-            Character character = JsonUtility.FromJson<Character>(www.downloadHandler.text);
-            StartCoroutine(GetImage(character.image));
+            if (i < trainersList.Count)
+            {
+                UserInfo trainer = trainersList[i];
+                trainerCards[i].cardRoot.SetActive(true);
 
+                // Asignar Nombre y Región
+                if (trainerCards[i].nameText != null)
+                    trainerCards[i].nameText.text = trainer.username;
+
+                if (trainerCards[i].regionText != null)
+                    trainerCards[i].regionText.text = trainer.region;
+
+                // Cargar imagen del entrenador
+                StartCoroutine(DownloadImage(trainer.img, trainerCards[i].avatarImage, $"Entrenador ({trainer.username})"));
+
+                // Configurar click
+                trainerCards[i].actionButton.onClick.RemoveAllListeners();
+                trainerCards[i].actionButton.onClick.AddListener(() => ShowMenuCards(trainer));
+            }
+            else
+            {
+                trainerCards[i].cardRoot.SetActive(false);
+            }
         }
     }
-    IEnumerator GetImage(string imageUrl)
+
+    #endregion
+
+    #region Peticiones API - Pokémon & Deck
+
+    private void UpdateDeckView()
     {
-        UnityWebRequest www = UnityWebRequestTexture.GetTexture(imageUrl);
-        yield return www.SendWebRequest();
-        if (www.result != UnityWebRequest.Result.Success)
+        if (selectedTrainer == null || selectedTrainer.deck == null || selectedTrainer.deck.Length == 0)
         {
-            Debug.Log(www.error);
+            Debug.LogWarning("[DECK] El entrenador seleccionado no tiene deck configurado.");
+            return;
         }
-        else
+
+        int deckCount = selectedTrainer.deck.Length;
+        int leftIdx = (currentDeckCenterIndex - 1 + deckCount) % deckCount;
+        int centerIdx = currentDeckCenterIndex;
+        int rightIdx = (currentDeckCenterIndex + 1) % deckCount;
+
+        StartCoroutine(FetchAndDisplayPokemon(selectedTrainer.deck[leftIdx], leftCard));
+        StartCoroutine(FetchAndDisplayPokemon(selectedTrainer.deck[centerIdx], centerCard));
+        StartCoroutine(FetchAndDisplayPokemon(selectedTrainer.deck[rightIdx], rightCard));
+    }
+
+    public void NextPokemon()
+    {
+        if (selectedTrainer == null) return;
+        currentDeckCenterIndex = (currentDeckCenterIndex + 1) % selectedTrainer.deck.Length;
+        UpdateDeckView();
+    }
+
+    public void PrevPokemon()
+    {
+        if (selectedTrainer == null) return;
+        currentDeckCenterIndex = (currentDeckCenterIndex - 1 + selectedTrainer.deck.Length) % selectedTrainer.deck.Length;
+        UpdateDeckView();
+    }
+
+    IEnumerator FetchAndDisplayPokemon(int pokemonId, PokemonCardUI uiCard)
+    {
+        string url = pokeApiUrl + pokemonId;
+
+        using (UnityWebRequest req = UnityWebRequest.Get(url))
         {
-            Texture2D texture = DownloadHandlerTexture.GetContent(www);
-            GameObject.Find("RawImage").GetComponent<RawImage>().texture = texture;
-            // Do something with the texture, e.g., apply it to a material
+            yield return req.SendWebRequest();
+
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"<color=red>[ERROR POKEAPI]</color> ID: {pokemonId} | Código: {req.responseCode} | Detalle: {req.error}");
+            }
+            else
+            {
+                PokemonData data = JsonUtility.FromJson<PokemonData>(req.downloadHandler.text);
+
+                // 1. Nombre
+                if (uiCard.nameText != null)
+                {
+                    uiCard.nameText.text = char.ToUpper(data.name[0]) + data.name.Substring(1);
+                }
+
+                // 2. "#{id} tipo: {tipos}"
+                if (uiCard.infoText != null)
+                {
+                    List<string> typesList = new List<string>();
+                    foreach (var slot in data.types)
+                    {
+                        if (slot != null && slot.type != null)
+                        {
+                            typesList.Add(slot.type.name);
+                        }
+                    }
+                    string typesString = string.Join(" / ", typesList);
+                    uiCard.infoText.text = $"#{data.id} tipo: {typesString}";
+                }
+
+                // 3. Sprite Oficial
+                if (data.sprites != null && !string.IsNullOrEmpty(data.sprites.front_default))
+                {
+                    StartCoroutine(DownloadImage(data.sprites.front_default, uiCard.pokemonImage, $"Pokemon ({data.name})"));
+                }
+            }
         }
     }
+
+    #endregion
+
+    #region Utilidad de Descarga de Imágenes
+
+    IEnumerator DownloadImage(string url, Image targetImage, string tag = "Asset")
+    {
+        if (string.IsNullOrEmpty(url) || targetImage == null)
+        {
+            Debug.LogWarning($"<color=yellow>[IMAGE CANCEL]</color> URL vacía o Image component no asignado para {tag}");
+            yield break;
+        }
+
+        using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(url))
+        {
+            // Evita bloqueos 403 Forbidden comunes en servidores como Wikia/Google CDN
+            req.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+            yield return req.SendWebRequest();
+
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"<color=red>[ERROR IMAGEN - {tag}]</color> Status: {req.responseCode} | Error: {req.error}\nURL: {url}");
+            }
+            else
+            {
+                Texture2D texture = DownloadHandlerTexture.GetContent(req);
+                if (texture != null)
+                {
+                    Sprite newSprite = Sprite.Create(
+                        texture,
+                        new Rect(0, 0, texture.width, texture.height),
+                        new Vector2(0.5f, 0.5f)
+                    );
+                    targetImage.sprite = newSprite;
+                    Debug.Log($"<color=green>[OK IMAGEN]</color> Cargada correctamente: {tag}");
+                }
+                else
+                {
+                    Debug.LogError($"<color=red>[ERROR TEXTURA]</color> No se pudo convertir la respuesta en textura para {tag}");
+                }
+            }
+        }
+    }
+
+    #endregion
 }
 
+#region Estructuras de Datos
+
+[Serializable]
+public class TrainerCardUI
+{
+    public GameObject cardRoot;
+    public TextMeshProUGUI nameText;
+    public TextMeshProUGUI regionText; // Texto secundario para la región
+    public Image avatarImage;
+    public Button actionButton;
+}
+
+[Serializable]
+public class PokemonCardUI
+{
+    public GameObject cardRoot;
+    public TextMeshProUGUI nameText;
+    public TextMeshProUGUI infoText;   // Texto para "#{id} tipo: {tipo}"
+    public Image pokemonImage;
+}
+
+[Serializable]
+public class UserListWrapper
+{
+    public UserInfo[] users;
+}
+
+[Serializable]
 public class UserInfo
 {
     public int id;
     public string username;
-    public bool state;
+    public string region;
+    public string img;
     public int[] deck;
 }
-public class Character
+
+[Serializable]
+public class PokemonData
 {
     public int id;
     public string name;
-    public string species;
-    public string image;
-
+    public PokemonSprites sprites;
+    public PokemonTypeSlot[] types;
 }
+
+[Serializable]
+public class PokemonTypeSlot
+{
+    public int slot;
+    public PokemonTypeDetails type;
+}
+
+[Serializable]
+public class PokemonTypeDetails
+{
+    public string name;
+    public string url;
+}
+
+[Serializable]
+public class PokemonSprites
+{
+    public string front_default;
+}
+
+#endregion
