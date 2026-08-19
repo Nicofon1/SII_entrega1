@@ -207,39 +207,48 @@ public class PokemonAppManager : MonoBehaviour
 
     IEnumerator DownloadImage(string url, Image targetImage, string tag = "Asset")
     {
-        if (string.IsNullOrEmpty(url) || targetImage == null)
+        // 1. Diagnóstico preciso: saber si falta el componente de UI o la URL en el JSON
+        if (targetImage == null)
         {
-            Debug.LogWarning($"<color=yellow>[IMAGE CANCEL]</color> URL vacía o Image component no asignado para {tag}");
+            Debug.LogError($"<color=red>[INSPECTOR VACÍO]</color> Falta asignar el componente 'Image' en el Inspector para: {tag}");
+            yield break;
+        }
+
+        if (string.IsNullOrEmpty(url))
+        {
+            Debug.LogWarning($"<color=yellow>[JSON VACÍO]</color> La URL de imagen llegó vacía o nula desde el JSON para: {tag}");
             yield break;
         }
 
         using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(url))
         {
-            // Evita bloqueos 403 Forbidden comunes en servidores como Wikia/Google CDN
             req.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
             yield return req.SendWebRequest();
 
             if (req.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError($"<color=red>[ERROR IMAGEN - {tag}]</color> Status: {req.responseCode} | Error: {req.error}\nURL: {url}");
+                Debug.LogError($"<color=red>[ERROR DESCARGA - {tag}]</color> Status: {req.responseCode} | Error: {req.error}\nURL: {url}");
             }
             else
             {
                 Texture2D texture = DownloadHandlerTexture.GetContent(req);
                 if (texture != null)
                 {
+                    // =======================================================
+                    // PIXEL ART NÍTIDO (Equivalente al Inspector por código):
+                    // =======================================================
+                    texture.filterMode = FilterMode.Point;       // Elimina el suavizado borroso
+                    texture.wrapMode = TextureWrapMode.Clamp;     // Evita sangrado de bordes
+
                     Sprite newSprite = Sprite.Create(
                         texture,
                         new Rect(0, 0, texture.width, texture.height),
                         new Vector2(0.5f, 0.5f)
                     );
+
                     targetImage.sprite = newSprite;
-                    Debug.Log($"<color=green>[OK IMAGEN]</color> Cargada correctamente: {tag}");
-                }
-                else
-                {
-                    Debug.LogError($"<color=red>[ERROR TEXTURA]</color> No se pudo convertir la respuesta en textura para {tag}");
+                    targetImage.preserveAspect = true; // Mantiene las proporciones cuadradas del sprite
                 }
             }
         }
